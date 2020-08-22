@@ -4,9 +4,12 @@ import time, random, re, requests
 from db import get_db, DB_DATA, DB_IP, DB_TASK
 import traceback
 from utils.request import make_req
+from proxy.common import IP
 
 """
-从诸多来源扫描IP加入redis ip:all中等待测试
+while True
+    选择一个来源 获取IP
+    添加IP 写入redis ip:all
 """
 TEST_HEADER = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/72.0.3626.96 Safari/537.36',
@@ -19,6 +22,30 @@ TEST_URL = TEST_URL_BILI
 class ProxyFactory(object):
     def __init__(self):
         pass
+
+    @staticmethod
+    def proxy_str_check(maybe_ip: str) -> bool:
+        """
+        确保正确的host:port格式
+        :return:
+        """
+        try:
+
+            # re.match 尝试从字符串的起始位置匹配一个模式，如果不是起始位置匹配成功的话，match()就返回none
+            pattern_ip = re.compile(
+                r'^((25[0-5])|(2[0-4][0-9])|(1[0-9][0-9])|([1-9][0-9])|([0-9]))(\.((25[0-5])|(2[0-4][0-9])|(1[0-9][0-9])|([1-9][0-9])|([0-9]))){3}$')
+            # port [0,65535]
+            pattern_port = re.compile(r'(^\d$)|(^[1-9]\d{1,3}$)|(^[1-5]\d{4}$)|(^6[0-5][0-5][0-3][0-5]$)')
+            ip, port = maybe_ip.split(":")
+            # print('ip ', re.match(pattern_ip, ip).group())
+            # print('port ', re.match(pattern_port, port).group())
+            if re.match(pattern_ip, ip) and re.match(pattern_port, port):
+                return True
+            else:
+                return False
+
+        except Exception:
+            return False
 
     @staticmethod
     def freeProxy0(proxies=None) -> List[str]:
@@ -36,9 +63,15 @@ class ProxyFactory(object):
         good, content_type, res = make_req(url, proxies=proxies)
         if good and content_type == 'application/json':
             items = res.json(encoding='utf-8')
-            new_ips = [item['proxy'] for item in items]
-            print("---->通过来源：{0} {1} 获得{2}个IP".format(src_name, url, len(new_ips)))
-            proxies.extend(new_ips)
+            cnt = 0
+            for item in items:
+                raw_ip = item['proxy']
+                if ProxyFactory.proxy_str_check(raw_ip):
+                    proxies.append(raw_ip)
+                    cnt += 1
+                else:
+                    pass
+            print("---->通过来源：{0} {1} 获得{2}个IP".format(src_name, url, cnt))
         else:
             why = content_type
             print("---->通过来源：{0} {1} 获得IP失败 原因为{2}".format(src_name, url, why))
@@ -62,9 +95,15 @@ class ProxyFactory(object):
                 items = re.findall(
                     r'<td.*?>(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})</td>[\s\S]*?<td.*?>(\d+)</td>',
                     res.text)
-                new_ips = [item[0] + ":" + item[1] for item in items]
-                print("---->通过来源：{0} {1} 获得{2}个IP".format(src_name, url, len(new_ips)))
-                proxies.extend(new_ips)
+                cnt = 0
+                for item in items:
+                    raw_ip = item[0] + ":" + item[1]
+                    if ProxyFactory.proxy_str_check(raw_ip):
+                        proxies.append(raw_ip)
+                        cnt += 1
+                    else:
+                        pass
+                print("---->通过来源：{0} {1} 获得{2}个IP".format(src_name, url, cnt))
             else:
                 why = content_type
                 print("---->通过来源：{0} {1} 获得IP失败 原因为{2}".format(src_name, url, why))
@@ -76,7 +115,8 @@ def run_proxy_scan() -> List[str]:
     轮流从多个来源中获取IP
     :return: ['{host}:{port}']
     """
-    return ProxyFactory.freeProxy0(proxies=None)
+    ips = ProxyFactory.freeProxy0(proxies=None)
+    return ips
 
 
 def app_scan_ip():
@@ -103,10 +143,12 @@ def app_scan_ip():
         print("########第{0}次{1}开始".format(tick + 1, app_name))
         try:
             st = time.time()
+            #步骤1 选择来源 获取IP
             ips = set(run_proxy_scan())
             if ips:
                 candidate.update(ips)
                 if len(candidate) > batch_num:
+                    #步骤2 添加IP 写入redis ip:all
                     add_ip(candidate)
                     print("成功添加{0}个IP".format(len(candidate)))
                     candidate = set()
