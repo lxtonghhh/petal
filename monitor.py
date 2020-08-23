@@ -1,6 +1,3 @@
-import asyncio, aiohttp
-from req import factory_req, Req
-from proxy import app_provide_available_ip
 from typing import List, Tuple, Set
 from db import get_db,DB_CONTROL,parse_str
 import time, random, math, traceback

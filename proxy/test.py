@@ -1,8 +1,10 @@
 from typing import List
 import asyncio, aiohttp
 import time, random, json
-from db import get_db, DB_DATA, DB_IP, DB_TASK,parse_str
+from db import get_db, DB_DATA, DB_IP, DB_TASK, parse_str
 import traceback
+from mixin import NodeMixin
+import uuid
 
 """
 从DB_IP ip:all获取测试IP
@@ -14,6 +16,7 @@ TEST_HEADER = {
 }
 TEST_URL_BILI = 'http://api.bilibili.com/x/relation/stat?vmid=38351330'
 TEST_URL = TEST_URL_BILI
+
 
 
 def get_ips() -> List[str]:
@@ -31,7 +34,6 @@ def get_ips() -> List[str]:
     rdb = get_db(DB_IP)
     coll = "ip:all"
     while True:
-
 
         """
         unknown_ips 确保有一定数量
@@ -159,16 +161,23 @@ def app_provide_available_ip():
                     pass
             else:
                 pass
-            print("############第{0}次工作流结束 本轮有{1}个可用IP 共{2}个可用IP 用时{3}".format(tick + 1, len(ips), len(candidate),time.time() - st))
+            print("############第{0}次工作流结束 本轮有{1}个可用IP 共{2}个可用IP 用时{3}".format(tick + 1, len(ips), len(candidate),
+                                                                              time.time() - st))
         except Exception as e:
             print('执行主循环出现异常:', repr(e))
             print("########第{0}次IP测试失败".format(tick + 1))
 
         finally:
-            time.sleep(5 * random.random())
+            time.sleep(10)
             tick += 1
+
+
 import os
 
 if __name__ == '__main__':
+    rdb = get_db(DB_IP)
+    coll = "ip:{target}".format(target='available')
+    size = rdb.scard(coll)
+    print(size, type(size),rdb.smembers(coll))
 
-    app_provide_available_ip()
+    # app_provide_available_ip()
