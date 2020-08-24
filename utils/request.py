@@ -1,6 +1,6 @@
 import requests
-
-
+import urllib3
+urllib3.disable_warnings()
 def get(url):
     """
 
@@ -38,8 +38,8 @@ def make_req(url: str, proxies: str = None, timeout: int = 9) -> tuple:
             proxies = None
         else:
             #{"https": "47.100.104.247:8080", "http": "36.248.10.47:8080"}
-            proxies = dict(http=str(proxies))
-        with requests.get(url, timeout=timeout, allow_redirects=False, proxies=proxies) as res:
+            proxies = dict(http=str(proxies),https=str(proxies))
+        with requests.get(url, timeout=timeout, allow_redirects=False, proxies=proxies, verify=False) as res:
             if res.status_code == 200:
                 ct = content_type(res)
                 return (True, ct, res)

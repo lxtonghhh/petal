@@ -35,7 +35,7 @@ class IPManager(NodeMixin):
         self.test_pool = {target: set() for target in self.targets.keys()}
         self.min_supply = 5  # IP池最小供应量
         self.delete_score = -5  # 删除IP的底线
-        self.test_interval = 30
+        self.test_interval = 10
         self.test_timeout = 5  # 测试响应超时
         self.isRunning = True
         self.dev_mode = True
