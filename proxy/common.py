@@ -21,7 +21,7 @@ class IPManager(NodeMixin):
     检查可用IP池redis DB_IP ip:{target_name} (set)是否充足? 不足时从各个来源扫描IP保存到测试IP池self.pool中;充足则拷贝到测试IP池self.pool中
     2.维护高质量的IP池
     周期性测试测试IP池self.pool中IP对于不同TargetUrl的可用性，保存到可用IP池redis DB_IP ip:{target_name} (set) target_name对应不同TargetUrl
-    todo 记录每个IP对应target_name的质量score 保存到redis DB_IP score (hash) proxy:dict(tar1:score1,tar2:score2)
+    记录每个IP对应target_name的质量score 保存到IP质量库redis DB_IP score:{target_name} (hash) proxy:dict(tar1:score1,tar2:score2)
     3.作为node接收msg 临时补充某个TargetUrl的IP池
     """
 
@@ -34,6 +34,7 @@ class IPManager(NodeMixin):
         )
         self.test_pool = {target: set() for target in self.targets.keys()}
         self.min_supply = 5  # IP池最小供应量
+        self.delete_score = -5  # 删除IP的底线
         self.test_interval = 30
         self.test_timeout = 5  # 测试响应超时
         self.isRunning = True
@@ -62,19 +63,28 @@ class IPManager(NodeMixin):
         :return:
         """
         for target_name, (test_url, content_type) in self.targets.items():
+            print('-->对于测试目标{tar} 开始测试可用性'.format(tar=target_name))
             IPs = self.test_pool.get(target_name, [])
-            candidates = set()
+            candidates = set()  # 更新集合
+            discards = set()  # 删除集合
             for IP in IPs:
                 if self._test_IP(IP.proxy, test_url, content_type):
-                    print('Good->',target_name,IP.proxy)
+                    print('Good->', target_name, IP.proxy)
+                    self._update_score(IP.proxy, target_name, True)
                     candidates.add(IP.proxy)
                 else:
-                    pass
-                    #print('Bad->', target_name, IP.proxy)
-            print('-->对于测试目标{tar}测试池有{testnum}个IP，通过测试{passnum}个IP'.format(tar=target_name, testnum=len(IPs),
-                                                                           passnum=len(candidates)))
-            # 将通过测试的IP保存到可用IP池
-            self._update_IPs(candidates, target_name)
+                    score = self._update_score(IP.proxy, target_name, False)
+                    if score < self.delete_score:
+                        discards.add(IP.proxy)
+                    else:
+                        pass
+                # print('Bad->', target_name, IP.proxy)
+            print('-->对于测试目标{tar}测试池有{testnum}个IP，通过测试{passnum}个IP，失效{failnum}个IP'.format(tar=target_name,
+                                                                                          testnum=len(IPs),
+                                                                                          passnum=len(candidates),
+                                                                                          failnum=len(discards)))
+            self._update_IPs(candidates, target_name)  # 将通过测试的IP保存到可用IP池
+            self._delete_IPs(discards, target_name)  # 将失效的IP删除
 
     def do_scan(self):
         """
@@ -104,7 +114,48 @@ class IPManager(NodeMixin):
                     print('-->对于测试目标{tar} 从可用IP池拉取到{num}个IP到测试池'.format(tar=target_name, num=len(IPs)))
                     self.test_pool[target_name] = IPs
 
+    def _update_score(self, IP: str, target_name: str, good: bool):
+        """
+        根据一次测试后的结果good 在IP质量库redis DB_IP score:{target_name} (hash)更新其质量
+        以0为基准 上下加减1
+        :param IP:
+        :param target_name:
+        :param good:
+        :return: 当前score
+        """
+        rdb = get_db(DB_IP)
+        coll = "score:{target}".format(target=target_name)
+        if good:
+            return rdb.hincrby(coll, IP, amount=1)
+        else:
+            return rdb.hincrby(coll, IP, amount=-1)
+
+    def _delete_IPs(self, IPs: Set[str], target_name: str):
+        """
+        删除IPs中的IP
+        :param IPs:
+        :param target_name:
+        :return:
+        """
+        if IPs:
+            rdb = get_db(DB_IP)
+            coll_IP = "ip:{target}".format(target=target_name)
+            rdb.srem(coll_IP, *IPs)
+            # todo 同时删除score 质量记录
+            """
+            coll_score = "score:{target}".format(target=target_name)
+            rdb.hdel(coll_score, *IPs)
+            """
+        else:
+            pass
+
     def _update_IPs(self, IPs: Set[str], target_name: str):
+        """
+        todo 不清空原有IP 根据历史表现删除失效IP
+        :param IPs:
+        :param target_name:
+        :return:
+        """
         if IPs:
             rdb = get_db(DB_IP)
             coll = "ip:{target}".format(target=target_name)

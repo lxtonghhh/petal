@@ -37,7 +37,8 @@ def make_req(url: str, proxies: str = None, timeout: int = 9) -> tuple:
         if not proxies:
             proxies = None
         else:
-            proxies = dict(http="http://" + str(proxies))
+            #{"https": "47.100.104.247:8080", "http": "36.248.10.47:8080"}
+            proxies = dict(http=str(proxies))
         with requests.get(url, timeout=timeout, allow_redirects=False, proxies=proxies) as res:
             if res.status_code == 200:
                 ct = content_type(res)
