@@ -67,9 +67,9 @@ class ProxyFactory(object):
             items = res.json(encoding='utf-8')
             cnt = 0
             for item in items:
-                raw_ip = 'http://' + item['proxy']
+                raw_ip = item['proxy']
                 if ProxyFactory.proxy_str_check(raw_ip):
-                    proxies.append(raw_ip)
+                    proxies.append('http://' + raw_ip)
                     cnt += 1
                 else:
                     pass
@@ -100,9 +100,9 @@ class ProxyFactory(object):
                     res.text)
                 cnt = 0
                 for item in items:
-                    raw_ip = 'http://' + item[0] + ":" + item[1]
+                    raw_ip = item[0] + ":" + item[1]
                     if ProxyFactory.proxy_str_check(raw_ip):
-                        proxies.append(raw_ip)
+                        proxies.append('http://' + raw_ip)
                         cnt += 1
                     else:
                         pass

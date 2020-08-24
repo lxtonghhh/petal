@@ -1,5 +1,6 @@
-from proxy.test import app_provide_available_ip
-__all__ = [app_provide_available_ip]
+from proxy.test import test_IP_by_request
+from proxy.scan import generate_IP_by_scan
+__all__ = [test_IP_by_request,generate_IP_by_scan]
 
 if __name__ == '__main__':
-    app_provide_available_ip()
+    generate_IP_by_scan()

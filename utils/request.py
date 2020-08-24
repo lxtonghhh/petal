@@ -43,10 +43,10 @@ def make_req(url: str, proxies: str = None, timeout: int = 9) -> tuple:
                 ct = content_type(res)
                 return (True, ct, res)
             else:
-                print("GET失败: 请求失败状态码 ", res.status_code)
+                #print("GET失败: 请求失败状态码 ", res.status_code)
                 return (False, str(res.status_code), None)
     except Exception as e:
-        print("GET失败: 请求异常 ", repr(e))
+        #print("GET失败: 请求异常 ", repr(e))
         return (False, repr(e), None)
 
 

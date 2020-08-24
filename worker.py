@@ -1,6 +1,5 @@
 import asyncio, aiohttp
 from req import factory_req, Req
-from proxy import app_provide_available_ip
 from mixin import NodeMixin
 from typing import List, Tuple, Set
 from db import get_db, DB_DATA, DB_IP, DB_TASK, DB_STAT
