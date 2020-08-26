@@ -73,6 +73,7 @@ class IPManager(NodeMixin):
                     self._update_score(IP.proxy, target_name, True)
                     candidates.add(IP.proxy)
                 else:
+                    print('Bad->', target_name, IP.proxy)
                     score = self._update_score(IP.proxy, target_name, False)
                     if score < self.delete_score:
                         discards.add(IP.proxy)
@@ -114,7 +115,7 @@ class IPManager(NodeMixin):
                     print('-->对于测试目标{tar} 从可用IP池拉取到{num}个IP到测试池'.format(tar=target_name, num=len(IPs)))
                     self.test_pool[target_name] = IPs
 
-    def _update_score(self, IP: str, target_name: str, good: bool):
+    def _update_score(self, IP: str, target_name: str, good: bool)->int:
         """
         根据一次测试后的结果good 在IP质量库redis DB_IP score:{target_name} (hash)更新其质量
         以0为基准 上下加减1

@@ -29,6 +29,7 @@ class NodeMixin(object):
                 raise Exception("无法注册 已存在同名node", nodekey)
             else:
                 # todo 更新状态应该分离
+                print('完成注册节点',nodekey)
                 rdb.hset(coll, nodekey, dict(status="Running"))
 
     def beat_node(self):

@@ -56,4 +56,4 @@ def stop_node(nodekey: str):
 
 
 if __name__ == '__main__':
-    stop_node("f116305c-e45d-11ea-9a75-acfdcee0691e")
+    stop_node("eda65194-e7d3-11ea-b146-acfdcee0691e")

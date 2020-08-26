@@ -32,4 +32,8 @@ if __name__ == '__main__':
     rdb = redis.Redis(host=REDIS_CONFIG['host'], port=REDIS_CONFIG['port'], db=REDIS_CONFIG['db'],
                       decode_responses=True,
                       password=REDIS_CONFIG['password'])
-    rdb.set("age", 10)
+    rdb=get_db(DB_DATA)
+    coll = "data:bili"
+    print(rdb.hget(coll,'20001'))
+    exist_tasks = rdb.hkeys("data:bili")
+    print(len(exist_tasks))

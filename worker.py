@@ -3,7 +3,7 @@ from req import factory_req, Req
 from mixin import NodeMixin
 from typing import List, Tuple, Set
 from db import get_db, DB_DATA, DB_IP, DB_TASK, DB_STAT
-import time, random, math, traceback
+import time, random, math, traceback, json
 import enum
 import uuid
 
@@ -16,10 +16,13 @@ Worker 核心功能
 3.从队列获取任务打包成一次工作流 完成后打包进行持久化 失败任务放回
 
 2020.8.21
-根据bili的反爬频率限制 单个IP的good_QPS 理论上限为8-10 
-目前性能瓶颈是IP质量 单个IP的good_QPS在 0.1-2
+根据bili的反爬频率限制 单核单IP的good_QPS 理论上限为8-10 
+目前性能瓶颈是IP质量 单核单IP的good_QPS在 0.1-2
+
+2020.8.26
+通过IP管理 单核单IP的good_QPS在 2-3.5
 """
-BASE_CONCURRENCY = 16
+BASE_CONCURRENCY = 8
 
 
 class Worker(NodeMixin):
@@ -31,6 +34,7 @@ class Worker(NodeMixin):
         self.isRunning = True  # 控制运行
         # self.good_data = []  # 成功任务的数据
         # self.bad_data = []
+        self.target_name = 'bili'  # 用于管理IP 任务
         self.good_total = 0  # 累计成功数
         self.all_totoal = 0
         self.good = set()  # 每次工作流成功任务的url_token
@@ -138,7 +142,7 @@ class Worker(NodeMixin):
         """
         # todo 统计IP获取效率
         rdb = get_db(DB_IP)
-        coll = "ip:available"
+        coll = "ip:{target}".format(target=self.target_name)
         while True:
             ip = rdb.spop(coll)
             if not ip:
@@ -186,8 +190,8 @@ class Worker(NodeMixin):
         elif len(self.good) / len(self.all) > 0.5:
             # 成功率高 提高并发
             self.concurrency *= 2
-            if self.concurrency > 32:
-                self.concurrency = 32
+            if self.concurrency > 16:
+                self.concurrency = 16
             else:
                 pass
         elif len(self.good) / len(self.all) < 0.1:
@@ -209,7 +213,7 @@ class Worker(NodeMixin):
         """
         # todo 统计任务获取效率
         rdb = get_db(DB_TASK)
-        coll = "task:bili"
+        coll = "task:{target}".format(target=self.target_name)
 
         tasks = []
         retry = 10  # 重试次数过多直接返回已有任务
@@ -269,18 +273,19 @@ class Worker(NodeMixin):
 
     def _save(self):
         rdb = get_db(DB_DATA)
-        coll = "data:bili"
-        print('------>保存{0}个完成任务 '.format(len(self.result.keys())))
+        coll = "data:{target}".format(target=self.target_name)
+
+        print('------>保存{0}个完成任务 '.format(len(self.result.keys())), self.result)
         rdb.hmset(coll, self.result)
 
     def _givaback_ip(self, ip):
         rdb = get_db(DB_IP)
-        coll = "ip:available"
+        coll = "ip:{target}".format(target=self.target_name)
         rdb.sadd(coll, ip)
 
     def _givaback_task(self):
         rdb = get_db(DB_TASK)
-        coll = "task:bili"
+        coll = "task:{target}".format(target=self.target_name)
         # List[str]
         todos = list(self.all - self.good)
         print('------>准备归还{0}个未完成任务 '.format(len(todos)), todos)
@@ -314,6 +319,7 @@ class Worker(NodeMixin):
                         for task in finished:
                             res = task.result()
                             """
+                            确保数据成功获取
                             res{url_token,good,content,cost}
                             """
                             url_token = res.get('url_token', None)
@@ -321,20 +327,40 @@ class Worker(NodeMixin):
                                 continue
                             else:
                                 pass
+                            # todo 某些IP会收到假数据 需要校验结果
+                            """
+                            确保数据合法格式和真实内容 [data][mid]与url_token不相等则为fake
+                            {'code': 0, 'message': '0', 'ttl': 1, 
+                            'data': {'mid': 7, 'following': 53, 'whisper': 0, 'black': 0, 'follower': 3860}
+                            }
+                            """
                             if res.get('good', False):
                                 # good
-                                # self.good_data.append(dict(url_token=url_token, content=res.get('content', None)))
-                                print(res, self.ip)
-                                self.result[url_token] = res.get('content', None)
-                                self.good.add(url_token)
-                                self.good_total += 1
-                                self.stat_good += 1
-                                self.timeout_all += res.get('cost', 0)
-                                self.stat_all += 1
-                                self.timeout_good += res.get('cost', 0)
+                                dc = res.get('content', None)
+                                try:
+                                    if str(dc['data']['mid']) == url_token:
+                                        isFake = False
+                                    else:
+                                        isFake = True
+                                except:
+                                    isFake = True
+                                print(res, self.ip, ' isFake: ', isFake)
+                                if not isFake:
+                                    # good and real
+                                    self.result[url_token] = res.get('content', None)
+                                    self.good.add(url_token)
+                                    self.good_total += 1
+                                    self.stat_good += 1
+                                    self.timeout_all += res.get('cost', 0)
+                                    self.stat_all += 1
+                                    self.timeout_good += res.get('cost', 0)
+                                else:
+                                    # good but fake
+                                    self.timeout_all += res.get('cost', 0)
+                                    self.stat_all += 1
+                                    self.timeout_bad += res.get('cost', 0)
                             else:
                                 # bad
-                                # self.bad_data.append(dict(url_token=url_token, content=res.get('content', None)))
                                 self.timeout_all += res.get('cost', 0)
                                 self.stat_all += 1
                                 self.timeout_bad += res.get('cost', 0)
@@ -482,7 +508,7 @@ def uoload_ip(ips=None):
     return rdb.sadd(coll, *ips)
 
 
-def upload_task(remove_repeat=True):
+def upload_task(tasks: List[str] = None, remove_repeat=True):
     """
     清空并添加一批任务
     :return:
@@ -491,7 +517,7 @@ def upload_task(remove_repeat=True):
     rdb = get_db(DB_TASK)
     coll = "task:bili"
     rdb.delete(coll)
-    tasks = [str(1 + i) for i in range(10000)]
+    tasks = [str(1 + i) for i in range(20000, 21000)] if not tasks else tasks
     page_size = 100
     page_num = math.ceil(len(tasks) / page_size)
     page = 0

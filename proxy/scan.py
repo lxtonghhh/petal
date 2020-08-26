@@ -19,9 +19,12 @@ class IP(object):
         self.proxy = proxy
         self.score = score
 
+
 def debug(*info):
     print(info)
     exit()
+
+
 class ProxyFactory(object):
     def __init__(self):
         pass
@@ -93,7 +96,7 @@ class ProxyFactory(object):
         print("使用来源1： ", src_name)
         proxies = []
         url_format = 'https://www.7yip.cn/free/?action=china&page={page}'
-        for i in range(page_num):
+        for i in random.sample(list(range(page_num)), k=2):
             url = url_format.format(page=i + 1)
             good, content_type, res = make_req(url, proxies=work_proxy)
             if good and content_type == 'text/html;charset=utf-8':
@@ -127,7 +130,7 @@ class ProxyFactory(object):
         url_formats = ['http://www.ip3366.net/free/?stype=1&page={page}',
                        "http://www.ip3366.net/free/?stype=2&page={page}"]
         for url_format in url_formats:
-            for i in random.sample(list(range(page_num)), k=3):
+            for i in random.sample(list(range(page_num)), k=2):
                 url = url_format.format(page=i + 1)
                 good, content_type, res = make_req(url, proxies=work_proxy)
                 if good and content_type == 'text/html':
@@ -158,18 +161,18 @@ class ProxyFactory(object):
         src_name = '免费代理库jiangxianli'
         print("使用来源3： ", src_name)
         proxies = []
-        url_format="https://ip.jiangxianli.com/api/proxy_ips?page={page}"
-        for i in random.sample(list(range(page_num)), k=5):
+        url_format = "https://ip.jiangxianli.com/api/proxy_ips?page={page}"
+        for i in random.sample(list(range(page_num)), k=2):
             url = url_format.format(page=i + 1)
             good, content_type, res = make_req(url, proxies=work_proxy)
-            print(url,good,content_type)
+            print(url, good, content_type)
             if good and content_type == 'application/json':
-                result_data= res.json(encoding='utf-8')
-                items =result_data.get('data',dict(data=[])).get('data',[])
+                result_data = res.json(encoding='utf-8')
+                items = result_data.get('data', dict(data=[])).get('data', [])
                 if items:
                     cnt = 0
                     for item in items:
-                        raw_ip = item['ip']+':'+item['port']
+                        raw_ip = item['ip'] + ':' + item['port']
                         if ProxyFactory.proxy_str_check(raw_ip):
                             proxies.append('http://' + raw_ip)
                             cnt += 1
@@ -196,7 +199,7 @@ class ProxyFactory(object):
         print("使用来源4： ", src_name)
         proxies = []
         url_format = 'https://www.89ip.cn/index_{page}.html'
-        for i in random.sample(list(range(page_num)), k=5):
+        for i in random.sample(list(range(page_num)), k=2):
             url = url_format.format(page=i + 1)
             good, content_type, res = make_req(url, proxies=work_proxy)
             if good and 'text/html' in content_type:
@@ -217,6 +220,7 @@ class ProxyFactory(object):
                 why = content_type
                 print("---->通过来源：{0} {1} 获得IP失败 原因为{2}".format(src_name, url, why))
         return proxies
+
     @staticmethod
     def freeProxy5(page_num=5, work_proxy=None) -> List[str]:
         """
@@ -250,6 +254,7 @@ class ProxyFactory(object):
                 why = content_type
                 print("---->通过来源：{0} {1} 获得IP失败 原因为{2}".format(src_name, url, why))
         return proxies
+
     @staticmethod
     def freeProxy6(page_num=10, work_proxy=None) -> List[str]:
         """
@@ -284,6 +289,7 @@ class ProxyFactory(object):
                 why = content_type
                 print("---->通过来源：{0} {1} 获得IP失败 原因为{2}".format(src_name, url, why))
         return proxies
+
     @staticmethod
     def freeProxy7(page_num=100, work_proxy=None) -> List[str]:
         """
@@ -298,7 +304,7 @@ class ProxyFactory(object):
         url_format = 'http://www.xiladaili.com/gaoni/{page}/'
         for i in random.sample(list(range(page_num)), k=2):
             url = url_format.format(page=i + 1)
-            good, content_type, res = make_req(url, proxies=work_proxy,timeout=15)
+            good, content_type, res = make_req(url, proxies=work_proxy, timeout=15)
             if good and 'text/html' in content_type:
                 # \s* 0或多个空白字符
                 items = re.findall(
@@ -317,6 +323,7 @@ class ProxyFactory(object):
                 why = content_type
                 print("---->通过来源：{0} {1} 获得IP失败 原因为{2}".format(src_name, url, why))
         return proxies
+
     @staticmethod
     def freeProxy8(page_num=100, work_proxy=None) -> List[str]:
         """
@@ -329,9 +336,9 @@ class ProxyFactory(object):
         print("使用来源8： ", src_name)
         proxies = []
         url_format = 'http://www.nimadaili.com/gaoni/{page}/'
-        for i in random.sample(list(range(page_num)), k=2):
+        for i in random.sample(list(range(page_num)), k=1):
             url = url_format.format(page=i + 1)
-            good, content_type, res = make_req(url, proxies=work_proxy,timeout=15)
+            good, content_type, res = make_req(url, proxies=work_proxy, timeout=15)
 
             if good and 'text/html' in content_type:
                 # \s* 0或多个空白字符
@@ -352,6 +359,7 @@ class ProxyFactory(object):
                 print("---->通过来源：{0} {1} 获得IP失败 原因为{2}".format(src_name, url, why))
         return proxies
 
+
 def generate_IP_by_scan(src=None) -> List[IP]:
     """
     轮流从多个来源中获取IP
@@ -360,12 +368,12 @@ def generate_IP_by_scan(src=None) -> List[IP]:
     """
     if not src:
         sources = [
-            ProxyFactory.freeProxy0,ProxyFactory.freeProxy1,
-            ProxyFactory.freeProxy2,ProxyFactory.freeProxy3,
+            ProxyFactory.freeProxy0, ProxyFactory.freeProxy1,
+            ProxyFactory.freeProxy2, ProxyFactory.freeProxy3,
             ProxyFactory.freeProxy4, ProxyFactory.freeProxy5,
             ProxyFactory.freeProxy6, ProxyFactory.freeProxy7,
             ProxyFactory.freeProxy8
-                   ]
+        ]
         factory = random.choice(sources)
     else:
         factory = src
