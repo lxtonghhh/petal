@@ -34,7 +34,7 @@ class BiliStatData(object):
         return {k: parser(v) for k, v in all_dict.items()}
 
     @staticmethod
-    def vadidate(item: dict, url_token: str) -> bool:
+    def validation(item: dict, url_token: str) -> bool:
         """
         检验格式及其真实性 假数据的mid恒为7 不与url_token一致
         :param item:
@@ -51,4 +51,4 @@ if __name__ == '__main__':
     ut='19999'
     item=BiliStatData.get(ut)
     print(item,type(item))
-    print(BiliStatData.vadidate(item, ut))
+    print(BiliStatData.validation(item, ut))
