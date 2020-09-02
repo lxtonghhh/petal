@@ -1,4 +1,5 @@
 import enum
+from helper.db import db_loads, db_dumps
 
 
 class MessageCode(enum.Enum):
@@ -6,11 +7,7 @@ class MessageCode(enum.Enum):
     Stop = 1
 
 
-MessageMap = {
-    MessageCode.Empty: 'Empty',
-    MessageCode.Stop: 'Stop',
-}
-get_msg_name = lambda code: MessageMap[code]
+def get_empty_message(): return Message.make_message_by_quick(code=MessageCode.Empty)
 
 
 def get_stop_message(): return Message.make_message_by_quick(code=MessageCode.Stop)
@@ -22,14 +19,15 @@ class Message(object):
     """
     allow_props = ['code', 'name', 'content']
 
-    def __init__(self, code: MessageCode, name: str, content: dict):
-        self.code = code  # 代码 int
-        self.name = name  # 消息种类名称 与code一一对应
+    def __init__(self, code: MessageCode, content: dict):
+        self.code = code.value  # 代码MessageCode.value [int]
+        self.name = code.name  # 消息种类名称MessageCode.name [str]
         self.content = content  # 具体数据
 
     def __setattr__(self, name, value):
         """
-        支持修改属性 content
+        支持修改属性 content'
+        todo 属性特性 不可修改 code name
         :param name:
         :param value:
         :return:
@@ -42,6 +40,30 @@ class Message(object):
             else:
                 self.__dict__[name] = value
 
+    def dumps(self):
+        """
+        为存储到redis中 将自身序列化
+        :return: {is_msg,code,name,content}
+        """
+        return dict(is_msg=True, code=self.code.value, name=self.code.name, content=self.content)
+
+    @staticmethod
+    def loads(message_str: str):
+        """
+        从redis中获取到的序列化的msg 组装成Message对象
+        无效则为空消息
+        :param message_str: {is_msg,code,name,content}
+        :return:
+        """
+        maybe_msg = db_loads(message_str)
+        if maybe_msg.get('is_msg', False):
+            code = maybe_msg.get('code', MessageCode.Empty)
+            msg = Message.make_message_by_quick(code=code)
+            msg.content = maybe_msg.get('content', {})
+            return msg
+        else:
+            return get_empty_message()
+
     @staticmethod
     def make_message_by_quick(code: MessageCode):
         """
@@ -52,10 +74,10 @@ class Message(object):
         :return:
         """
         if code == MessageCode.Stop:
-            return Message(code, get_msg_name(code), {})
+            return Message(code, {})
         else:
             code = MessageCode.Empty
-            return Message(code, get_msg_name(code), {})
+            return Message(code, {})
 
     @staticmethod
     def make_message_by_template(code: MessageCode):
@@ -67,7 +89,7 @@ class Message(object):
         """
         msg = Message.make_message_by_quick(code)
         if code == MessageCode.Stop:
-            msg.conten = dict(value='stop')
+            msg.content = dict(value='stop')
         else:
             # 不设置content
             pass
@@ -77,5 +99,5 @@ class Message(object):
 if __name__ == '__main__':
     m = get_stop_message()
     m.content = 1
-    m.age=1
-    print(m.content,m.name)
+    m.age = 1
+    print(m.content, m.name)
