@@ -24,6 +24,27 @@ class Message(object):
         self.name = code.name  # 消息种类名称MessageCode.name [str]
         self.content = content  # 具体数据
 
+    def __bool__(self):
+        """
+        空消息的bool值为False
+        :return:
+        """
+        if self.code == MessageCode.Empty.value:
+            return False
+        else:
+            return True
+
+    def __eq__(self, other: MessageCode):
+        """
+        直接与MessageCode比较
+        :param other:
+        :return:
+        """
+        if type(other) != MessageCode:
+            return False
+        else:
+            return self.code == other.value
+
     def __setattr__(self, name, value):
         """
         支持修改属性 content'
@@ -97,7 +118,26 @@ class Message(object):
 
 
 if __name__ == '__main__':
+
+    # 测试Message __eq__
     m = get_stop_message()
-    m.content = 1
-    m.age = 1
-    print(m.content, m.name)
+    mc1 = MessageCode.Stop
+    mc2 = MessageCode.Empty
+    print(m == mc1)
+    print(m == mc2)
+    print(m == 1)
+
+    # 测试Message __bool__
+    m = get_stop_message()
+    if m:
+        print(1)
+    else:
+        print(2)
+
+    # 测试Message __setattr__
+    try:
+        m.content = 1
+        m.age = 1
+        print(m.content, m.name)
+    except Exception as e:
+        print(repr(e))

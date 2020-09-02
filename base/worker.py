@@ -1,14 +1,17 @@
 from mixin import NodeMixin
+from base.message import Message, MessageCode
 from typing import List, Tuple, Set
-from db import get_db, DB_DATA, DB_IP, DB_TASK, DB_STAT
 import time, random, math, traceback, json
 import uuid
+
+
 class Worker(NodeMixin):
     """
     节点管理
     处理消息
     生成id self.id
     """
+
     def __init__(self):
         self.id = str(uuid.uuid1())  # 实例唯一id 用于注册 成为node
         # todo 离线模式
@@ -27,38 +30,45 @@ class Worker(NodeMixin):
 
     def msg_check(self):
         """
-        检查是否有来自控制中心的消息
+        检查是否有来自控制中心的消息 根据解析器执行具体处理 然后返回相关信息info
         对于msg优先执行专属self.special_parser
         若没有执行通用self.general_parse
-        :return:
+        :return: info{}
         """
         msg = self.receive_msg(self.id)
         if not msg:
             pass
         else:
-            info = self.special_parser(msg)
-            if info:
-                return info
-            else:
-                return self.general_parser(msg)
+            info1 = self.special_parser(msg)
+            info2 = self.general_parser(msg, info1)
+            return info2
 
-    def special_parser(self, msg):
+    def special_parser(self, msg: Message) -> dict:
         """
-        专属消息解析器
+        专属消息解析器 没有则执行通用消息解析器
         :param msg:
         :return: info [dict]
         """
-        return None
+        return {}
 
-    def general_parser(self, msg):
+    def general_parser(self, msg: Message, info_before: dict) -> dict:
         """
         通用消息解析器 不可覆盖
+        MessageCode.Stop触发SystemExit
+        空消息通常为忽略
         :param msg:
+        :param info_before:前一次解析执行的结果
         :return: info [dict]
         """
-        pass
+        if msg == MessageCode.Stop:
+            raise SystemExit
+        elif msg == MessageCode.Empty:
+            return {}
 
 
 if __name__ == '__main__':
-    pass
-
+    a = {"age": 1}
+    if a:
+        print(1)
+    else:
+        print(2)

@@ -1,4 +1,4 @@
-from monitor import Message, _send_msg
+from base.message import Message, get_empty_message
 from helper.db import get_db, DB_CONTROL
 
 """
@@ -39,23 +39,20 @@ class NodeMixin(object):
         """
         pass
 
-
-    def receive_msg(self, nodekey: str) -> str:
+    def receive_msg(self, nodekey: str) -> Message:
         """
-        尝试读取一个msg
+        尝试从db: DB_CONTROL coll:message(nodekey:list)读取一个msg_str
+        然后生成Message 队列中没有则生成空消息
         :return:
         """
         rdb = get_db(DB_CONTROL)
         coll = "message:{node}".format(node=nodekey)
-        msg = rdb.lpop(coll)
-        if not msg:
-            return None
+        msg_str = rdb.lpop(coll)
+        if not msg_str:
+            return get_empty_message()
         else:
-            print('------>收到到消息', msg)
-            if msg == str(Message.Stop.value):
-                return 'stop'
-            else:
-                return None
+            print('------>收到到消息', msg_str)
+            return Message.loads(msg_str)
 
     def stop_node(self, nodekey: str):
         """
