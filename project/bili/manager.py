@@ -7,6 +7,19 @@ SAMPLE_ITEM = {'code': 0, 'message': '0', 'ttl': 1,
 parser = lambda itemStr: json.loads(s=itemStr.replace("'", '"'), encoding='utf-8')
 
 
+class BiliStatManager():
+    """
+    管理任务分发
+    结果存储
+    """
+
+    def arrange(self):
+        pass
+
+    def dump(self):
+        pass
+
+
 class BiliStatData(object):
     """
     数据库redis: DB_DATA data:bili
@@ -52,3 +65,5 @@ if __name__ == '__main__':
     item=BiliStatData.get(ut)
     print(item,type(item))
     print(BiliStatData.validation(item, ut))
+
+
