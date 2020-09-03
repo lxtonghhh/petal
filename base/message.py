@@ -1,16 +1,21 @@
 import enum
-from helper.db import db_loads, db_dumps
+from helper.db import get_db, db_loads, db_dumps, DB_CONTROL
 
 
 class MessageCode(enum.Enum):
     Empty = 0
     Stop = 1
+    Req = 10  # 仅用于Client
+    Res = 11  # 仅用于Client
 
 
 def get_empty_message(): return Message.make_message_by_quick(code=MessageCode.Empty)
 
 
 def get_stop_message(): return Message.make_message_by_quick(code=MessageCode.Stop)
+
+
+def get_req_message(): return Message.make_message_by_quick(code=MessageCode.Req)
 
 
 class Message(object):
@@ -61,12 +66,15 @@ class Message(object):
             else:
                 self.__dict__[name] = value
 
+    def __str__(self):
+        return "Message of {name}:{code} with {content}".format(name=self.name, code=self.code, content=self.content)
+
     def dumps(self):
         """
         为存储到redis中 将自身序列化
         :return: {is_msg,code,name,content}
         """
-        return dict(is_msg=True, code=self.code.value, name=self.code.name, content=self.content)
+        return db_dumps(dict(is_msg=True, code=self.code, name=self.name, content=self.content))
 
     @staticmethod
     def loads(message_str: str):
@@ -117,10 +125,41 @@ class Message(object):
         return msg
 
 
+def do_send_msg(nodekey: str, msg: Message):
+    """
+    将Message序列化 加入nodekey的消息队列  位于redis:DB_CONTROL
+    :param nodekey:
+    :param msg:
+    :return:
+    """
+
+    rdb = get_db(DB_CONTROL)
+    coll = "message:{node}".format(node=nodekey)
+    meg_str = msg.dumps()
+    rdb.rpush(coll, meg_str)
+
+
+def do_receive_msg(nodekey: str) -> Message:
+    """
+    尝试从db: DB_CONTROL coll:message(nodekey:list)读取一个msg_str
+    然后生成Message 队列中没有则生成空消息
+    :return:
+    """
+    rdb = get_db(DB_CONTROL)
+    coll = "message:{node}".format(node=nodekey)
+    msg_str = rdb.lpop(coll)
+    if not msg_str:
+        return get_empty_message()
+    else:
+        print('------>收到到消息', msg_str)
+        return Message.loads(msg_str)
+
+
 if __name__ == '__main__':
 
     # 测试Message __eq__
     m = get_stop_message()
+    print(m)
     mc1 = MessageCode.Stop
     mc2 = MessageCode.Empty
     print(m == mc1)

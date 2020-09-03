@@ -3,7 +3,7 @@ import asyncio, aiohttp
 import time, random, json
 from helper.db import get_db, DB_IP
 import traceback
-from mixin import NodeMixin
+from mixin import NodeMixin, NodeFaculty
 import uuid
 from proxy.scan import generate_IP_by_scan, IP
 from proxy.test import test_IP_by_request
@@ -27,7 +27,7 @@ class IPManager(NodeMixin):
 
     def __init__(self):
         self.id = str(uuid.uuid1())  # 实例唯一id 用于注册 成为node
-        self.register_node(self.id)
+        self.register_node(self.id, NodeFaculty.IP)
         # {target_name:(test_url,resp_content_type)}
         self.targets = dict(
             bili=(TEST_URL_BILI, 'application/json')
@@ -115,7 +115,7 @@ class IPManager(NodeMixin):
                     print('-->对于测试目标{tar} 从可用IP池拉取到{num}个IP到测试池'.format(tar=target_name, num=len(IPs)))
                     self.test_pool[target_name] = IPs
 
-    def _update_score(self, IP: str, target_name: str, good: bool)->int:
+    def _update_score(self, IP: str, target_name: str, good: bool) -> int:
         """
         根据一次测试后的结果good 在IP质量库redis DB_IP score:{target_name} (hash)更新其质量
         以0为基准 上下加减1

@@ -1,6 +1,6 @@
 import asyncio, aiohttp
 from req import factory_req, Req
-from mixin import NodeMixin
+from mixin import NodeMixin, NodeFaculty, NodeStatus
 from typing import List, Tuple, Set
 from db import get_db, DB_DATA, DB_IP, DB_TASK, DB_STAT
 import time, random, math, traceback, json
@@ -31,7 +31,7 @@ class Worker(NodeMixin):
     def __init__(self):
         self.id = str(uuid.uuid1())  # 实例唯一id 用于注册 成为node
         # todo 离线模式
-        self.register_node(self.id)
+        self.register_node(self.id, NodeFaculty.Collector)
         self.isRunning = True  # 控制运行
         # self.good_data = []  # 成功任务的数据
         # self.bad_data = []

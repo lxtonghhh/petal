@@ -1,6 +1,5 @@
 import redis, json
 from setting import MY_CONFIG
-
 DB_IP = 1
 DB_TASK = 2
 DB_DATA = 3
@@ -42,12 +41,34 @@ def db_loads(res_str: str) -> dict:
     :return:
     """
     if type(res_str) == str:
-        return json.loads(res_str.replace("'", '"'), encoding='utf-8')
+        print(res_str.replace("'", '"'))
+        return json.loads(res_str.replace("'", '"'))
     else:
         return {}
 
 
+def db_update_dict(dict_str: str, new_dict: dict) -> dict:
+    """
+    更新redis中的dict 反序列化后返回新的dict
+    :param dict_str:
+    :param new_dict:
+    :return:
+    """
+    if not dict_str:
+        return new_dict
+    else:
+        old_dict = json.loads(dict_str.replace("'", '"'), encoding='utf-8')
+        old_dict.update(new_dict)
+        return old_dict
+
 if __name__ == '__main__':
+
+    s1='{"is_msg": True, "code": 0, "name": "Empty", "content": {"cmd": "get", "nodekey": []}}'
+
+    s2={"is_msg": True, "code": 0, "name": "Empty", "content": {"cmd": "get", "nodekey": []}}
+    print(json.dumps(s2))
+    print(json.loads(json.dumps(s2)))
+    exit()
     rdb = redis.Redis(host=REDIS_CONFIG['host'], port=REDIS_CONFIG['port'], db=REDIS_CONFIG['db'],
                       decode_responses=True,
                       password=REDIS_CONFIG['password'])
