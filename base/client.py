@@ -23,7 +23,7 @@ stop [index] 停止节点[index]运行
 """
 
 
-def call_and_wait(monitor_nodekey: str, req_msg: Message) -> Message:
+def call_and_wait(my_nodekey: str, monitor_nodekey: str, req_msg: Message) -> Message:
     """
     向Monitor发送Req类型消息后 开始轮询自己的队列等待一个对应的Res类型消息
     todo 等待超时处理 轮询频率控制
@@ -33,8 +33,7 @@ def call_and_wait(monitor_nodekey: str, req_msg: Message) -> Message:
     """
     do_send_msg(monitor_nodekey, req_msg)
     while True:
-        #todo bug 应该使用my_nodekey
-        res_msg = do_receive_msg(monitor_nodekey)
+        res_msg = do_receive_msg(my_nodekey)
         if res_msg == MessageCode.Res:
             return res_msg
         else:
@@ -52,11 +51,12 @@ def call_not_wait(monitor_nodekey: str, req_msg: Message):
     do_send_msg(monitor_nodekey, req_msg)
 
 
-def exe_quit_cli():
+# 执行函数至少带一个参数cur_node
+def exe_quit_cli(cur_node: Worker, ):
     raise SystemExit
 
 
-def exe_user_get_nodes(target_nodekey: str):
+def exe_user_get_nodes(cur_node: Worker, target_nodekey: str):
     msg = get_req_message()
     if target_nodekey.strip() == '-a':
         # 获取全部node
@@ -64,7 +64,7 @@ def exe_user_get_nodes(target_nodekey: str):
     else:
         msg.content = dict(cmd='get', nodekey=[target_nodekey.strip()])
     monitor_nodekey = find_to_who()
-    res_msg = call_and_wait(monitor_nodekey, msg)
+    res_msg = call_and_wait(cur_node.id, monitor_nodekey, msg)
     # 解析res content{nodes} nodes[{node}...] node{id,status,faculty}
     # todo fields 检查
     nodes = res_msg.content
@@ -72,7 +72,7 @@ def exe_user_get_nodes(target_nodekey: str):
         print(node)
 
 
-def exe_user_stop_node(target_nodekey: str):
+def exe_user_stop_node(cur_node: Worker, target_nodekey: str):
     msg = get_req_message()
     msg.content = dict(cmd='stop', nodekey=[target_nodekey.strip()])
     monitor_nodekey = find_to_who()
@@ -109,8 +109,8 @@ class Client(Worker):
         exe = CmdMapping.get(maybe_cmd, None)
         if not exe:
             is_cmd = False
-        elif len(args) != get_args_num(exe):
-            # 参数个数必须符合要求
+        elif len(args) + 1 != get_args_num(exe):
+            # 参数个数必须符合要求 执行函数至少带一个参数cur_node
             print("wrong args num: ", get_args_num(exe))
             is_cmd = False
         else:
@@ -127,15 +127,15 @@ class Client(Worker):
                     # print("Cmd:{0} will be executed.".format(theme_str(ipt)))
                     if args:
                         print(exe, *args)
-                        exe(*args)
+                        exe(self, *args)
                     else:
-                        exe()
+                        exe(self)
                 else:
                     print("Cmd:{0} is not supported.".format(theme_str(ipt)))
             except Exception as e:
                 pass
                 print('主循环出现异常:', repr(e))
-                #todo 常见异常 JSON解析错误
+                # todo 常见异常 JSON解析错误
                 traceback.print_exc(e)
             except SystemExit:
                 self.stop_node(self.id)

@@ -27,8 +27,10 @@ class Worker(NodeMixin):
         for i in range(seconds, 0, -1):
             print("-" * i + "->Node{0} will be STOPPED in {1}".format(self.id, i))
             time.sleep(1)
-    def sleep(self,interval=1):
+
+    def sleep(self, interval=1):
         time.sleep(interval)
+
     def msg_check(self):
         """
         检查是否有来自控制中心的消息 根据解析器执行具体处理 然后返回相关信息info
