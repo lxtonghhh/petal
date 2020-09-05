@@ -67,7 +67,7 @@ class NodeMixin(object):
         if not msg_str:
             return get_empty_message()
         else:
-            print('------>收到到消息', msg_str)
+            print('------>收到消息', msg_str)
             return Message.loads(msg_str)
 
     def stop_node(self, nodekey: str):

@@ -55,26 +55,27 @@ def call_not_wait(monitor_nodekey: str, req_msg: Message):
 def exe_quit_cli(cur_node: Worker, ):
     raise SystemExit
 
-
+# need_res 有些cmd不需要Res
 def exe_user_get_nodes(cur_node: Worker, target_nodekey: str):
-    msg = get_req_message()
+    msg = get_req_message(src=cur_node.id)
     if target_nodekey.strip() == '-a':
         # 获取全部node
-        msg.content = dict(cmd='get', nodekey=[])
+        msg.content = dict(cmd='get', nodekey=[],need_res=True)
     else:
-        msg.content = dict(cmd='get', nodekey=[target_nodekey.strip()])
+        msg.content = dict(cmd='get', nodekey=[target_nodekey.strip()],need_res=True)
     monitor_nodekey = find_to_who()
+    print('准备发送Req消息: ',msg)
     res_msg = call_and_wait(cur_node.id, monitor_nodekey, msg)
-    # 解析res content{nodes} nodes[{node}...] node{id,status,faculty}
+    # 解析res content{res=nodes} nodes[{node}...] node{id,status,faculty}
     # todo fields 检查
-    nodes = res_msg.content
+    nodes = res_msg.content.get('res',[])
     for node in nodes:
         print(node)
 
 
 def exe_user_stop_node(cur_node: Worker, target_nodekey: str):
-    msg = get_req_message()
-    msg.content = dict(cmd='stop', nodekey=[target_nodekey.strip()])
+    msg = get_req_message(cur_node.id)
+    msg.content = dict(cmd='stop', nodekey=[target_nodekey.strip()],need_res=False)
     monitor_nodekey = find_to_who()
     call_not_wait(monitor_nodekey, msg)
 

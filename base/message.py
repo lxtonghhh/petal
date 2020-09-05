@@ -9,25 +9,30 @@ class MessageCode(enum.Enum):
     Res = 11  # 仅用于Client
 
 
-def get_empty_message(): return Message.make_message_by_quick(code=MessageCode.Empty)
+def get_empty_message(src: str = None): return Message.make_message_by_quick(code=MessageCode.Empty, src=src)
 
 
-def get_stop_message(): return Message.make_message_by_quick(code=MessageCode.Stop)
+def get_stop_message(src: str): return Message.make_message_by_quick(code=MessageCode.Stop, src=src)
 
 
-def get_req_message(): return Message.make_message_by_quick(code=MessageCode.Req)
+def get_req_message(src: str): return Message.make_message_by_quick(code=MessageCode.Req, src=src)
+
+
+def get_res_message(src: str): return Message.make_message_by_quick(code=MessageCode.Res, src=src)
 
 
 class Message(object):
     """
     消息对象 用于节点间通信
     """
-    allow_props = ['code', 'name', 'content']
+    allow_props = ['code', 'name', 'content', 'src']
 
-    def __init__(self, code: MessageCode, content: dict):
+    def __init__(self, code: MessageCode, content: dict, src: str):
+
         self.code = code.value  # 代码MessageCode.value [int]
         self.name = code.name  # 消息种类名称MessageCode.name [str]
         self.content = content  # 具体数据
+        self.src = src  # 消息来源的nodekey
 
     def __bool__(self):
         """
@@ -74,7 +79,7 @@ class Message(object):
         为存储到redis中 将自身序列化
         :return: {is_msg,code,name,content}
         """
-        return db_dumps(dict(is_msg=True, code=self.code, name=self.name, content=self.content))
+        return db_dumps(dict(is_msg=True, code=self.code, name=self.name, content=self.content, src=self.src))
 
     @staticmethod
     def loads(message_str: str):
@@ -86,37 +91,38 @@ class Message(object):
         """
         maybe_msg = db_loads(message_str)
         if maybe_msg.get('is_msg', False):
-            code = maybe_msg.get('code', MessageCode.Empty)
-            msg = Message.make_message_by_quick(code=code)
+            code_name = maybe_msg.get('name', 'Empty')
+            msg = Message.make_message_by_quick(code=MessageCode[code_name], src=maybe_msg.get('src', None))
             msg.content = maybe_msg.get('content', {})
+            print('组装出消息对象: ', msg)
             return msg
         else:
             return get_empty_message()
 
     @staticmethod
-    def make_message_by_quick(code: MessageCode):
+    def make_message_by_quick(code: MessageCode, src: str):
         """
         根据code快速生成已定义好的消息 尚未定义content
         无效code生成空消息
         todo 错误消息
         :param code:
+        :param src:生成消息的nodekey
         :return:
         """
-        if code == MessageCode.Stop:
-            return Message(code, {})
+        if type(code) != MessageCode:
+            return Message(MessageCode.Empty, {}, src)
         else:
-            code = MessageCode.Empty
-            return Message(code, {})
+            return Message(code, {}, src)
 
     @staticmethod
-    def make_message_by_template(code: MessageCode):
+    def make_message_by_template(code: MessageCode, src: str):
         """
         根据code生成常用模板消息 设置content
         无效code生成空消息或者无content
         :param code:
         :return:
         """
-        msg = Message.make_message_by_quick(code)
+        msg = Message.make_message_by_quick(code, src)
         if code == MessageCode.Stop:
             msg.content = dict(value='stop')
         else:
@@ -156,7 +162,6 @@ def do_receive_msg(nodekey: str) -> Message:
 
 
 if __name__ == '__main__':
-
     # 测试Message __eq__
     m = get_stop_message()
     print(m)

@@ -41,7 +41,6 @@ def db_loads(res_str: str) -> dict:
     :return:
     """
     if type(res_str) == str:
-        print(res_str.replace("'", '"'))
         return json.loads(res_str.replace("'", '"'))
     else:
         return {}

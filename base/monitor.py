@@ -1,7 +1,9 @@
 from typing import List, Tuple, Set
 from helper.db import get_db, DB_CONTROL, db_loads
-from base.worker import Worker, NodeFaculty, Message
-import time
+from base.worker import Worker, NodeFaculty, NodeStatus
+from base.message import Message, MessageCode, get_empty_message, get_stop_message, get_res_message, do_send_msg, \
+    do_receive_msg
+import time, traceback
 
 """
 值班员 1管理节点的运行 2接受来自Client命令执行 3服务中介
@@ -28,7 +30,8 @@ def find_to_who() -> str:
         nodes = rdb.hgetall(coll)
         for nodekey, node_info in nodes.items():
             info = db_loads(node_info)
-            if info.get('faculty', None) and info.get('status', 'Running'):
+            if info.get('faculty', None) == NodeFaculty.Monitor.name \
+                    and info.get('status', None) == NodeStatus.Running.name:
                 print('找到可用Monitor', nodekey)
                 return nodekey
             else:
@@ -55,13 +58,47 @@ class Monitor(Worker):
         meg_str = msg.dumps()
         rdb.rpush(coll, meg_str)
 
+    def execute_cmd(self, msg: Message) -> Message:
+        """
+        处理Req类型消息，根据cmd调用执行函数exe，生成Res类型消息
+        :param msg:
+        :return:
+        """
+        ct = msg.content
+        cmd = ct.get('cmd', None)
+
+        exe = CmdMapping.get(cmd, None)
+        if not exe:
+            return get_empty_message()
+        else:
+            # 将content直接作为参数传入
+            result = exe(self, **ct)
+            if ct.get('need_res', False) == True:
+                res_msg = get_res_message(src=self.id)
+                # 需要将结果打包为dict
+                res_msg.content = dict(res=result)
+                return res_msg
+            else:
+                return get_empty_message(src=self.id)
+
     def special_parser(self, msg: Message):
         """
         处理主要来自cli的命令消息
         :param msg:
         :return:
         """
-        pass
+        if msg == MessageCode.Req:
+            # 处理来自Client的Req类型消息
+            target_nodekey = msg.src
+            if not target_nodekey:
+                # todo 缺少收件人
+                pass
+            else:
+                res_msg = self.execute_cmd(msg)
+                print('准备发送Res消息: ', res_msg)
+                self.do_send_msg(target_nodekey, res_msg)
+        else:
+            pass
 
     def run(self):
         while True:
@@ -70,6 +107,7 @@ class Monitor(Worker):
             except Exception as e:
                 pass
                 print('主循环出现异常:', repr(e))
+                traceback.print_exc(e)
             except SystemExit:
                 self.stop_node(self.id)
                 # do restore before exit
@@ -84,26 +122,70 @@ class Monitor(Worker):
                     exit()
 
 
-def exe_get_node(nodekey: str):
-    pass
+# params中常用字段 nodekey:List[str]
 
+def exe_cmd_get_node(cur_node: Worker, **params) -> List[dict]:
+    """
 
-def exe_stop_node(nodekey: str):
+    :param cur_node:
+    :param params: nodekey:List[str]
+    :return:
+    """
+    target_nodekeys = params.get('nodekey', [])
     rdb = get_db(DB_CONTROL)
     coll = "node"
-    if not rdb.hexists(coll, nodekey):
-        raise Exception("节点不存在", nodekey)
+    nodes = rdb.hgetall(coll)
+    result = []
+    if not target_nodekeys:
+        # 未指定则默认返回全部存活节点信息
+        for nodekey, node_info in nodes.items():
+            info = db_loads(node_info)
+            if info.get('status', None) == NodeStatus.Running.name:
+                info.update(nodekey=nodekey)
+                result.append(info)
+            else:
+                pass
     else:
-        info = db_loads(rdb.hget(coll, nodekey))
-        print(info, type(info))
-        status = info.get('status', None)
-        if status and status == 'Running':
-            _send_msg(nodekey, Message.Stop)
-        else:
-            raise Exception('节点已经停止', nodekey)
+        for nodekey, node_info in nodes.items():
+            if nodekey in target_nodekeys:
+                info = db_loads(node_info)
+                info.update(nodekey=nodekey)
+                result.append(info)
+            else:
+                pass
+    print('result: ', result)
+    return result
 
 
+def exe_cmd_stop_node(cur_node: Worker, **params):
+    """
+
+    :param cur_node:
+    :param params: nodekey:List[str]
+    :return:
+    """
+    rdb = get_db(DB_CONTROL)
+    coll = "node"
+    target_nodekeys = params.get('nodekey', [])
+    if not target_nodekeys:
+        pass
+    else:
+        for nodekey in target_nodekeys:
+            if not rdb.hexists(coll, nodekey):
+                pass
+            else:
+                info = db_loads(rdb.hget(coll, nodekey))
+                status = info.get('status', None)
+                if status == NodeStatus.Running.name:
+                    do_send_msg(nodekey, get_stop_message(src=cur_node.id))
+                else:
+                    pass
+
+
+CmdMapping = {
+    'get': exe_cmd_get_node,
+    'stop': exe_cmd_stop_node,
+}
 if __name__ == '__main__':
     m = Monitor()
     m.run()
-    # stop_node("7b70489a-e837-11ea-805e-acfdcee0691e")
